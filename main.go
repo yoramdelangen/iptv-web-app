@@ -17,8 +17,15 @@ const (
 	STREAM_LIVE = "/live/%s/%s"
 )
 
+var DB *surrealdb.DB
+
+func init() {
+	DB = Db()
+}
+
 func main() {
-	SyncXtreamApi()
+	fmt.Printf("DB %+v", DB)
+	// SyncXtreamApi()
 }
 
 func Server() {
@@ -34,16 +41,10 @@ func Server() {
 type Response = []map[string]interface{}
 
 func SyncXtreamApi() {
-	// Lets start
-	db := Db()
+	api := NewApi(DB)
+	// api.RunAll()
 
-	fmt.Println("kk")
-
-	api := NewApi(db)
-
-	api.RunAll()
-
-	// db.Create("movie_categories")
+	fmt.Printf("API XTREAM %+v\n", api)
 }
 
 type ActionIdType int
