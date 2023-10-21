@@ -35,21 +35,13 @@ type Response = []map[string]interface{}
 
 func SyncXtreamApi() {
 	// Lets start
-
-	client := req.C()
-	r := client.R()
 	db := Db()
 
 	fmt.Println("kk")
 
 	api := NewApi(db)
 
-	api.RunSingle(ACTION_MOVIES)
-	// Movies(db, r)
-	// LiveStreamCategories(db, r)
-	// LiveStreams(db, r)
-	// TvShowCategories(db, r)
-	// TvShows(db, r)
+	api.RunAll()
 
 	// db.Create("movie_categories")
 }
@@ -83,10 +75,20 @@ type XtreamApi struct {
 	actions map[ActionType]Action
 }
 
+func (x XtreamApi) RunAll() {
+	for action := range x.actions {
+		x.RunSingle(action)
+	}
+
+	fmt.Println("Ran all actions")
+}
+
 func (x XtreamApi) RunSingle(_type ActionType) {
 	action := x.actions[_type]
 	path := fmt.Sprintf(PATH, "4CNPVVkH7v", "946265932979")
 	url := fmt.Sprintf("%s%s&action=%s", HOST, path, action.Action)
+
+	fmt.Println("Starting", action.Action)
 
 	resp, err := x.client.Get(url)
 	if err != nil {
@@ -103,7 +105,7 @@ func (x XtreamApi) RunSingle(_type ActionType) {
 		if action.IdType == ACTION_ID_TYPE_FLOAT {
 			id = int(id.(float64))
 		}
-		thing := fmt.Sprintf("%s:%s", action.Table, id)
+		thing := fmt.Sprintf("%s:%v", action.Table, id)
 
 		// Query if the record exists and update if it does
 		_, err := x.db.Select(thing)
@@ -133,36 +135,36 @@ func NewApi(db *surrealdb.DB) *XtreamApi {
 			Action: "get_vod_categories",
 			Table: "movie_categories",
 			IdField: "category_id",
-			IdType: ACTION_ID_TYPE_FLOAT,
+			IdType: ACTION_ID_TYPE_STRING,
 		},
 		ACTION_MOVIES: {
 			Action:  "get_vod_streams",
 			Table:   "movies",
 			IdField: "stream_id",
+			IdType:  ACTION_ID_TYPE_FLOAT,
+		},
+		ACTION_TVSHOW_CATEGORIES: {
+			Action:  "get_series_categories",
+			Table:   "tvshow_categories",
+			IdField: "category_id",
 			IdType:  ACTION_ID_TYPE_STRING,
 		},
 		ACTION_TVSHOWS: {
 			Action:  "get_series",
 			Table:   "tvshows",
 			IdField: "series_id",
-			IdType:  ACTION_ID_TYPE_STRING,
-		},
-		ACTION_TVSHOW_CATEGORIES: {
-			Action:  "get_series_categories",
-			Table:   "tvshow_categories",
-			IdField: "category_id",
 			IdType:  ACTION_ID_TYPE_FLOAT,
-		},
-		ACTION_LIVESTREAMS: {
-			Action:  "get_live_streams",
-			Table:   "live_streams",
-			IdField: "stream_id",
-			IdType:  ACTION_ID_TYPE_STRING,
 		},
 		ACTION_LIVESTREAM_CATEGORIES: {
 			Action:  "get_live_categories",
 			Table:   "live_stream_categories",
 			IdField: "category_id",
+			IdType:  ACTION_ID_TYPE_STRING,
+		},
+		ACTION_LIVESTREAMS: {
+			Action:  "get_live_streams",
+			Table:   "live_streams",
+			IdField: "stream_id",
 			IdType:  ACTION_ID_TYPE_FLOAT,
 		},
 	}
@@ -175,6 +177,7 @@ func NewApi(db *surrealdb.DB) *XtreamApi {
 }
 
 // Connect with SurrealDB
+// TODO: add configuration .yaml/toml
 func Db() *surrealdb.DB {
 	db, err := surrealdb.New("ws://localhost:8000/rpc")
 	if err != nil {
