@@ -1,0 +1,12 @@
+DEFINE NAMESPACE iptv_ns;
+DEFINE DATABASE iptv_db;
+
+DEFINE TABLE movies SCHEMALESS;
+DEFINE TABLE movie_categories SCHEMALESS;
+
+DEFINE TABLE live_streams SCHEMALESS;
+DEFINE TABLE live_stream_categories SCHEMALESS;
+
+DEFINE TABLE tvshows SCHEMALESS;
+DEFINE TABLE tvshow_categories SCHEMALESS;
+
