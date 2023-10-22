@@ -1,10 +1,13 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/template/html/v2"
 	"github.com/imroc/req/v3"
 	"github.com/surrealdb/surrealdb.go"
 )
@@ -24,19 +27,31 @@ func init() {
 }
 
 func main() {
-	fmt.Printf("DB %+v", DB)
 	// SyncXtreamApi()
+	Server()
 }
+
+//go:embed templates/*
+var templates embed.FS
 
 func Server() {
-	app := fiber.New()
+	engine := html.NewFileSystem(http.FS(templates), ".html")
+	engine.Reload(true)
+	engine.Debug(true)
+
+	app := fiber.New(fiber.Config{
+		Views: engine,
+		ViewsLayout: "templates/layout",
+	})
+	app.Static("/", "./public")
 
 	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("Hello, World!")
+		return c.Render("templates/main", fiber.Map{})
 	})
 
-	app.Listen(":3000")
+	log.Fatal(app.Listen(":3000"))
 }
+
 
 type Response = []map[string]interface{}
 
@@ -48,12 +63,14 @@ func SyncXtreamApi() {
 }
 
 type ActionIdType int
+
 const (
 	ACTION_ID_TYPE_FLOAT ActionIdType = iota
 	ACTION_ID_TYPE_STRING
 )
 
 type ActionType int
+
 const (
 	ACTION_MOVIE_CATEGORIES ActionType = iota
 	ACTION_MOVIES
@@ -64,15 +81,15 @@ const (
 )
 
 type Action struct {
-	Action string
-	Table string
+	Action  string
+	Table   string
 	IdField string
-	IdType ActionIdType// float64 or string
+	IdType  ActionIdType // float64 or string
 }
 
 type XtreamApi struct {
-	db *surrealdb.DB
-	client *req.Request
+	db      *surrealdb.DB
+	client  *req.Request
 	actions map[ActionType]Action
 }
 
@@ -133,10 +150,10 @@ func NewApi(db *surrealdb.DB) *XtreamApi {
 
 	actions := map[ActionType]Action{
 		ACTION_MOVIE_CATEGORIES: {
-			Action: "get_vod_categories",
-			Table: "movie_categories",
+			Action:  "get_vod_categories",
+			Table:   "movie_categories",
 			IdField: "category_id",
-			IdType: ACTION_ID_TYPE_STRING,
+			IdType:  ACTION_ID_TYPE_STRING,
 		},
 		ACTION_MOVIES: {
 			Action:  "get_vod_streams",
@@ -171,8 +188,8 @@ func NewApi(db *surrealdb.DB) *XtreamApi {
 	}
 
 	return &XtreamApi{
-		db: db,
-		client: r,
+		db:      db,
+		client:  r,
 		actions: actions,
 	}
 }
