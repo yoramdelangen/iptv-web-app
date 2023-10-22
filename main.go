@@ -31,7 +31,7 @@ func main() {
 	Server()
 }
 
-//go:embed templates/*
+//go:embed templates/* layouts/*
 var templates embed.FS
 
 func Server() {
@@ -41,7 +41,7 @@ func Server() {
 
 	app := fiber.New(fiber.Config{
 		Views: engine,
-		ViewsLayout: "templates/layout",
+		ViewsLayout: "layouts/main",
 	})
 	app.Static("/", "./public")
 
