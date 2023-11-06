@@ -5,11 +5,30 @@ import { existsSync, unlinkSync, rmSync } from 'node:fs';
 const outDir = './dist';
 const assetDir = '../public/assets';
 const templateDir = '../layouts';
+const isProduction = process.env.NODE_ENV === 'production';
+
+console.log('Running production:', isProduction)
 
 /** @type {import('vite').UserConfig} */
 export default {
   build: {
     // outDir,
+    rollupOptions: {
+      output: {
+        assetFileNames() {
+          if (isProduction) {
+            return 'assets/[name]-[hash][extname]'
+          }
+          return 'assets/[name][extname]';
+        },
+        chunkFileNames() {
+          if (isProduction) {
+            return '[name]-[hash].js'
+          }
+          return '[name].js'
+        }
+      }
+    }
   },
   plugins: [
     {
