@@ -2,13 +2,15 @@ package main
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
+	"syscall"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/proxy"
 	"github.com/gofiber/template/html/v2"
 	"github.com/imroc/req/v3"
 	"github.com/surrealdb/surrealdb.go"
@@ -100,19 +102,31 @@ func Server() {
 	})
 
 	app.Get("/stream/:streamid/movies/:id", func(c *fiber.Ctx) error {
-		id := c.Params("id")
+		id := strings.Split(c.Params("id"), ".")[0]
 
 		host := "http://thu.watchbiptv.co:80"
 		creds := "4CNPVVkH7v/946265932979"
-		url := fmt.Sprintf("%s/movie/%s/%s", host, creds, id)
+		url := fmt.Sprintf("%s/movie/%s/%s.mkv", host, creds, id)
 
-		fmt.Println("URL", url)
+		client := &http.Client{}
+		req, _ := http.NewRequest("GET", url, nil)
 
-		if err := proxy.Do(c, url); err != nil {
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Println("Internal request failed: ", err)
 			return err
 		}
-		// Remove Server header from response
-		c.Response().Header.Del(fiber.HeaderServer)
+
+		c.Status(resp.StatusCode)
+		err = c.SendStream(resp.Body, -1)
+		if err != nil {
+			if errors.Is(err, syscall.EPIPE) {
+				return nil
+			}
+
+			return err
+		}
+
 		return nil
 	})
 
