@@ -18,16 +18,15 @@
     <h1 class="text-3xl bold px-4 pt-6 pb-2">Movies</h1>
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6 px-4">
       {{range .Movies}}
-      <div class="rounded-[30px] p-4 bg-gray-900">
-        <figure class="rounded-[30px] bg-red-500 w-full overflow-hidden">
-          <img src="{{.stream_icon}}" alt="{{.name}}" />
-        </figure>
+        <a href="/movies/{{ .stream_id }}" class="movie relative">
+          <figure class="bg-red-500 w-full rounded overflow-hidden aspect-[8/12]">
+            <img lazy="loading" src="{{.stream_icon}}" alt="{{.name}}" />
+          </figure>
 
-        <div class="py-4 px-2 xl:px-4">
-          <h2 class="text-lg lg:text-xl bold line-clamp-2">{{.name}}</h2>
-          <!-- TODO: Category and star rating-->
-        </div>
-      </div>
+          <div class="py-4 px-2 z-10 relative">
+            <h2 class="bold text-xs line-clamp-2">{{.name}}</h2>
+          </div>
+        </a>
       {{end}}
     </div>
   </main>

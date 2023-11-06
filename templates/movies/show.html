@@ -1,0 +1,40 @@
+<div class="min-h-[56.25vh] w-full relative flex items-end overflow-hidden">
+  <div class="container flex-1 h-full mx-auto">
+    <div class="grid grid-cols-2 relative z-10 h-full flex-1">
+      <div class="py-16">
+        <h1 class="text-5xl font-bold">{{ .Movie.name }}</h1>
+
+        <p class="text-lg py-6">{{ .Movie.info.description }}</p>
+
+        <div class="flex gap-4">
+          <div class="px-2 py-1 text-xs border border-gray-300 text-gray-300 uppercase rounded">Thriller</div>
+          <div class="px-2 py-1 text-xs border border-gray-300 text-gray-300 uppercase rounded">Horror</div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-center">
+        <button class="h-20 w-20 border rounded-full flex items-center justify-center" id="movie-{{.Movie.stream_id}}">
+          <svg class="w-10 h-10" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20"><g fill="none"><path d="M17.222 8.685a1.5 1.5 0 0 1 0 2.628l-10 5.498A1.5 1.5 0 0 1 5 15.496V4.502a1.5 1.5 0 0 1 2.223-1.314l10 5.497z" fill="currentColor"></path></g></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="absolute inset-0 z-[1] bg-gradient-to-t from-10% from-gray-950/100 via-30% from-gray-950/50 to-gray-10"></div>
+  <img class="absolute inset-0 object-cover z-0" src="{{index .Movie.info.backdrop_path 0}}" />
+</div>
+
+
+<h1>Show movie</h1>
+
+{{.}}
+
+<script>
+
+const butt = document.getElementById('movie-{{.Movie.stream_id}}');
+butt.addEventListener('click', () => {
+  console.log('Trigger load')
+  startPlaying('video/webm', 'http://thu.watchbiptv.co/movie/4CNPVVkH7v/946265932979/{{.Movie.stream_id}}.mkv')
+});
+</script>
+
