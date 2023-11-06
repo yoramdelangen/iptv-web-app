@@ -6,14 +6,18 @@ const Movies = `
 	select *
 	from movies
 	order by added desc
-	limit 10
+	limit 100
 `
 const MoviesByCategory = `
 	select *
 	from movies
 	where category_id = $category_id
 	order by added desc
-	limit 10
+	limit 100
+`
+const Movie = `
+	select *
+	from $thing
 `
 
 const MovieCategories = `
