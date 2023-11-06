@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/proxy"
 	"github.com/gofiber/template/html/v2"
 	"github.com/imroc/req/v3"
 	"github.com/surrealdb/surrealdb.go"
@@ -68,6 +70,7 @@ func Server() {
 		Views:       engine,
 		ViewsLayout: "layouts/main",
 	})
+	app.Use(logger.New())
 	app.Static("/", "./public")
 
 	app.Get("/", func(c *fiber.Ctx) error {
@@ -96,7 +99,24 @@ func Server() {
 		})
 	})
 
-	log.Fatal(app.Listen(":3000"))
+	app.Get("/stream/:streamid/movies/:id", func(c *fiber.Ctx) error {
+		id := c.Params("id")
+
+		host := "http://thu.watchbiptv.co:80"
+		creds := "4CNPVVkH7v/946265932979"
+		url := fmt.Sprintf("%s/movie/%s/%s", host, creds, id)
+
+		fmt.Println("URL", url)
+
+		if err := proxy.Do(c, url); err != nil {
+			return err
+		}
+		// Remove Server header from response
+		c.Response().Header.Del(fiber.HeaderServer)
+		return nil
+	})
+
+	log.Fatal(app.Listen("localhost:3000"))
 }
 
 type Response = []map[string]interface{}
