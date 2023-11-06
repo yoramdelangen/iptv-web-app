@@ -28,7 +28,7 @@ func MoviesIndex(c *fiber.Ctx) error {
 
 	fmt.Printf("Category: %+v\n", fmt.Sprintf("%v", qs.GetUintOrZero("category")))
 
-	return c.Render("movies/index", fiber.Map{
+	return c.Render("content/movies/index", fiber.Map{
 		"ActiveCategory": fmt.Sprintf("%d", qs.GetUintOrZero("category")),
 		"Movies":         movies,
 		"Categories":     categories,

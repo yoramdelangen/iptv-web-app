@@ -18,6 +18,8 @@ console.log('Running production:', isProduction)
 export default {
   build: {
     // outDir,
+    emptyOutDir: true,
+    //
     rollupOptions: {
       output: {
         assetFileNames() {
@@ -32,8 +34,8 @@ export default {
           }
           return '[name].js'
         }
-      }
-    }
+      },
+    },
   },
   plugins: [
     {
@@ -43,6 +45,7 @@ export default {
         const templateIndex = join(templateOut, 'main.html');
 
         if (existsSync(templateIndex)) {
+          console.log('REMOVE main.html')
           unlinkSync(templateIndex);
         }
 
@@ -53,11 +56,19 @@ export default {
 
         if (existsSync(index)) {
           console.log('Moving index.html file')
-          exec(['cp', index, templateIndex].join(' '))
+          console.log(['cp', index, templateIndex].join(' '))
+          exec(['cp', index, templateIndex].join(' '), () => {
+            console.log('Copied index.html')
+          })
         }
 
-        exec(['cp', '-R', absOut + '/assets', assetsOut].join(' '))
+        exec(['cp', '-R', absOut + '/assets', assetsOut].join(' '), () => {
+          console.log('Copied assets')
+        })
+        console.log(['cp', '-R', absOut + '/assets', assetsOut].join(' '))
         console.log('Moved assets')
+        console.log('')
+        console.log('Waiting for new change')
       }
     },
   ]

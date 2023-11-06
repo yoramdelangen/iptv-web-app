@@ -32,6 +32,7 @@
 .vid-container {
   @apply fixed bg-gray-950 border-gray-800;
   @apply transition-all;
+  @apply z-10;
   
   .action {
     @apply w-20 aspect-square flex justify-center items-center hover:bg-gray-900 border-l border-gray-800;
@@ -74,7 +75,7 @@
     @apply flex items-center gap-4;
     @apply rounded overflow-hidden;
     &:hover {
-      @apply bg-gray-900/30 cursor-pointer;
+      @apply bg-gray-900 cursor-pointer;
     }
     
     .actions {
