@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"embed"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -11,6 +12,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/imroc/req/v3"
@@ -147,34 +150,12 @@ func Server() {
 			return
 		}
 
-		fmt.Println("id", id)
-
 		host := "http://thu.watchbiptv.co:80"
 		creds := "4CNPVVkH7v/946265932979"
 		url := fmt.Sprintf("%s/movie/%s/%d.mkv", host, creds, id)
 
-		fmt.Println("URL to load", url)
-
-		r, _ := http.NewRequest(http.MethodGet, url, nil)
-
-		// add headers to request
-		for h, v := range c.Request.Header {
-			r.Header.Add(h, v[0])
-		}
-
-		client := http.Client{
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				fmt.Println("Redirected to:", req.URL)
-				fmt.Printf("Redirect headers: %+v\n", req.Header)
-				// http.ErrUseLastResponse
-				fmt.Println("Via:", via)
-				fmt.Println("")
-				return nil
-			},
-		}
-		resp, err := client.Do(r)
+		resp, err := doClientRequest(url, c.Request.Header)
 		if err != nil {
-			fmt.Printf("Request error: %s", err)
 			return
 		}
 
@@ -182,115 +163,58 @@ func Server() {
 			"Server",
 		}
 
-		fmt.Println("")
-		fmt.Println("SET HEADERS FROM REQUEST")
+		headers := c.Writer.Header()
 		// copy all headers back to the response
 		for header := range resp.Header {
 			if slices.Contains(allowHeaders, header) {
 				continue
+			} else if len(headers.Get(header)) > 0 {
+				continue
 			}
-			fmt.Println(header, resp.Header.Get(header))
 			c.Writer.Header().Add(header, resp.Header.Get(header))
 		}
 
 		defer resp.Body.Close()
 
-		fmt.Println("")
+		c.Status(resp.StatusCode)
+		c.Stream(func(w io.Writer) bool {
+			n, err := io.Copy(w, resp.Body)
+			if err != nil {
+				// connection was closed
+				if errors.Is(err, syscall.EPIPE) {
+					return false
+				}
 
-		// bytesRead := 0
-		fmt.Println("ALREADY SET HEADERS", c.Writer.Header())
+				fmt.Println("Error writing data:", err)
+				return false
+			}
 
-		_, err = io.Copy(c.Writer, resp.Body)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to stream video"})
-			return
-		}
+			if n == 0 {
+				fmt.Println("Nothing send, request done")
+				return false
+			}
 
-		// buf := make([]byte, oneMB*4)
-		// c.Stream(func(w io.Writer) bool {
-		// 	select {
-		// 	case <-ctx.Done():
-		// 		fmt.Println("Request canceled")
-		// 		return false // Stop streaming
-		// 	default:
-		// 		n, err := resp.Body.Read(buf)
-		// 		bytesRead += n
-		// 		if err != nil {
-		// 			if err == io.EOF {
-		// 				fmt.Println("EOF")
-		// 				return false
-		// 			}
-		//
-		// 			fmt.Println("Error reading data from the external URL:", err)
-		// 			return false
-		// 		}
-		//
-		// 		// fmt.Println("Totally written: ", bytesRead)
-		// 		_, writeErr := c.Writer.Write(buf[:n])
-		// 		if writeErr != nil {
-		// 			fmt.Println("Error writing data:", writeErr)
-		// 			return false
-		// 		}
-		//
-		// 		return true
-		// 	}
-		// })
+			return true
+		})
 	})
 
-	// app.GET("/cache", func(c *gin.Context) error {
-	// 	qs := c.Context().QueryArgs()
-	//
-	// 	cp, _ := os.Getwd()
-	// 	storagePath := filepath.Join(cp, "storage")
-	//
-	// 	// create storage folder
-	// 	if _, err := os.Stat(storagePath); errors.Is(err, os.ErrNotExist) {
-	// 		os.Mkdir(storagePath, 0755)
-	// 	}
-	//
-	// 	if qs.Has("image") {
-	// 		img := strings.TrimSpace(c.Query("image"))
-	//
-	// 		// fmt.Println("ext", path.Ext(img))
-	// 		imgHash := GetMD5Hash(img) + path.Ext(img)
-	// 		fileStorage := filepath.Join(storagePath, imgHash)
-	//
-	// 		if _, err := os.Stat(fileStorage); errors.Is(err, os.ErrNotExist) {
-	//
-	// 			if strings.HasPrefix(img, "data:") {
-	// 				fmt.Println("data image", img)
-	// 				return c.SendString(img)
-	// 			}
-	//
-	// 			// we should download it.
-	// 			resp, err := http.Get(img)
-	// 			if err != nil {
-	// 				fmt.Println("Error, err")
-	// 				return c.Status(404).SendString("Not found because of error: " + err.Error())
-	// 			}
-	//
-	// 			defer resp.Body.Close()
-	//
-	// 			out, err := os.Create(fileStorage)
-	// 			defer out.Close()
-	//
-	// 			_, err = io.Copy(out, resp.Body)
-	// 			if err != nil {
-	// 				fmt.Println("Error, err")
-	// 				return c.Status(404).SendString("Storing failed: " + err.Error())
-	// 			}
-	//
-	// 			return c.SendStream(out)
-	// 		}
-	//
-	// 		return c.SendFile(fileStorage, true)
-	// 	}
-	//
-	// 	return c.Status(404).SendString("Nothing to see")
-	//
-	// })
-
 	log.Fatal(app.Run("localhost:3000"))
+}
+func doClientRequest(url string, headers http.Header) (*http.Response, error) {
+	r, _ := http.NewRequest(http.MethodGet, url, nil)
+
+	// add headers to request
+	for h, v := range headers {
+		r.Header.Add(h, v[0])
+	}
+
+	client := http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return nil
+		},
+	}
+
+	return client.Do(r)
 }
 
 // ====================================================
