@@ -14,3 +14,4 @@ type SurrealResponse[T any] struct {
 }
 
 type Response = []map[string]interface{}
+type ResponseDetail = map[string]interface{}

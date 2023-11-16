@@ -1,6 +1,7 @@
 package xtream
 
 import (
+	"errors"
 	"fmt"
 	"log"
 
@@ -19,8 +20,10 @@ const (
 	ACTION_NONE ActionType = iota
 	ACTION_MOVIE_CATEGORIES
 	ACTION_MOVIES
-	ACTION_TVSHOWS
+	ACTION_MOVIE_INFO
 	ACTION_TVSHOW_CATEGORIES
+	ACTION_TVSHOWS
+	ACTION_TVSHOW_INFO
 	ACTION_LIVESTREAMS
 	ACTION_LIVESTREAM_CATEGORIES
 )
@@ -40,6 +43,13 @@ var Actions = map[ActionType]Action{
 		IdType:  ACTION_ID_TYPE_FLOAT,
 		For:     ACTION_NONE,
 	},
+	ACTION_MOVIE_INFO: {
+		Action:  "get_vod_info",
+		Table:   "movies",
+		IdField: "vod_id",
+		IdType:  ACTION_ID_TYPE_FLOAT,
+		For:     ACTION_NONE,
+	},
 	ACTION_TVSHOW_CATEGORIES: {
 		Action:  "get_series_categories",
 		Table:   "tvshow_categories",
@@ -49,6 +59,13 @@ var Actions = map[ActionType]Action{
 	},
 	ACTION_TVSHOWS: {
 		Action:  "get_series",
+		Table:   "tvshows",
+		IdField: "series_id",
+		IdType:  ACTION_ID_TYPE_FLOAT,
+		For:     ACTION_NONE,
+	},
+	ACTION_TVSHOW_INFO: {
+		Action:  "get_series_info",
 		Table:   "tvshows",
 		IdField: "series_id",
 		IdType:  ACTION_ID_TYPE_FLOAT,
@@ -86,19 +103,24 @@ const (
 	HOST = "http://thu.watchbiptv.co:80"
 	PATH = "/player_api.php?username=%s&password=%s"
 
+	USERNAME = "4CNPVVkH7v"
+	PASSWORD = "946265932979"
+
 	STREAM      = "/%s/%s" // Username/Password
 	STREAM_LIVE = "/live/%s/%s"
 )
 
 func New(db *surrealdb.DB) *XtreamApi {
-	client := req.C()
-	r := client.R()
-
 	return &XtreamApi{
 		db:      db,
-		client:  r,
+		client:  NewRequest(),
 		actions: Actions,
 	}
+}
+
+func NewRequest() *req.Request {
+	client := req.C()
+	return client.R()
 }
 
 type XtreamApi struct {
@@ -115,9 +137,15 @@ func (x XtreamApi) RunAll() {
 	fmt.Println("Ran all actions")
 }
 
+func (x XtreamApi) url(action string) string {
+	path := fmt.Sprintf(PATH, USERNAME, PASSWORD)
+
+	return fmt.Sprintf("%s%s&action=%s", HOST, path, action)
+}
+
 func (x XtreamApi) RunSingle(_type ActionType) {
 	action := x.actions[_type]
-	path := fmt.Sprintf(PATH, "4CNPVVkH7v", "946265932979")
+	path := fmt.Sprintf(PATH, USERNAME, PASSWORD)
 	url := fmt.Sprintf("%s%s&action=%s", HOST, path, action.Action)
 
 	fmt.Println("Starting", action.Action)
@@ -174,21 +202,38 @@ func (x XtreamApi) CategoryStats() {
 		})
 
 		fmt.Println("Finished for table", action.Table)
+	}
+}
 
-		// ACTION_MOVIE_CATEGORIES: {
-		// 	Action:  "get_vod_categories",
-		// 	Table:   "movie_categories",
-		// 	IdField: "category_id",
-		// 	IdType:  ACTION_ID_TYPE_STRING,
-		// 	For:     ACTION_MOVIES,
-		// },
-		// ACTION_MOVIES: {
-		// 	Action:  "get_vod_streams",
-		// 	Table:   "movies",
-		// 	IdField: "stream_id",
-		// 	IdType:  ACTION_ID_TYPE_FLOAT,
-		// 	For:     ACTION_NONE,
-		// },
+func (x XtreamApi) RunDetails(_type ActionType, id string) {
+	action := x.actions[_type]
+	url := x.url(action.Action) + "&vod_id=" + id
+
+	resp, err := x.client.Get(url)
+	if err != nil {
+		log.Fatal(err)
 	}
 
+	res := &types.ResponseDetail{}
+	resp.Unmarshal(res)
+
+	thing := fmt.Sprintf("%s:%v", action.Table, id)
+	query := "UPDATE $what MERGE $data"
+	params := map[string]interface{}{
+		"what": thing,
+		"data": res,
+	}
+	if _, err = x.db.Query(query, params); err != nil {
+		fmt.Printf("Failed Info update [%s] %s, error %s\n", action.Table, thing, err)
+	}
+}
+
+func ByAction(action string) (Action, error) {
+	for _, a := range Actions {
+		if a.Action == action {
+			return a, nil
+		}
+	}
+
+	return Action{}, errors.New("No action found")
 }

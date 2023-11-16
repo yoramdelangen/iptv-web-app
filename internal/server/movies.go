@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/yoramdelangen/iptv-web-app/internal/surreal"
 	"github.com/yoramdelangen/iptv-web-app/internal/types"
+	"github.com/yoramdelangen/iptv-web-app/internal/xtream"
 	"github.com/yoramdelangen/iptv-web-app/query"
 )
 
@@ -32,6 +33,22 @@ func MoviesIndex(c *fiber.Ctx) error {
 		"ActiveCategory": fmt.Sprintf("%d", qs.GetUintOrZero("category")),
 		"Movies":         movies,
 		"Categories":     categories,
+	})
+}
+
+func MovieShow(c *fiber.Ctx) error {
+	thing := "movies:" + c.Params("id")
+	movie := surreal.Select[types.Movie](thing)
+
+	if _, ok := movie["info"]; !ok {
+		api := xtream.New(surreal.DB)
+
+		api.RunDetails(xtream.ACTION_MOVIE_INFO, c.Params("id"))
+		movie = surreal.Select[types.Movie](thing)
+	}
+
+	return c.Render("content/movies/show", fiber.Map{
+		"Movie": movie,
 	})
 }
 

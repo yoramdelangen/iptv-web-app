@@ -42,3 +42,14 @@ func Query[T any](query string, payload map[string]interface{}) T {
 
 	return out
 }
+
+func Select[T any](thing string) T {
+	res, err := DB.Select(thing)
+	out, err := surrealdb.SmartUnmarshal[T](res, err)
+
+	if err != nil {
+		log.Println("Failed Unmarshal:", err)
+	}
+
+	return out
+}
