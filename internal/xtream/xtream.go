@@ -4,7 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
+	"slices"
+	"syscall"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/imroc/req/v3"
 	"github.com/surrealdb/surrealdb.go"
 	"github.com/yoramdelangen/iptv-web-app/internal/types"
@@ -236,4 +240,49 @@ func ByAction(action string) (Action, error) {
 	}
 
 	return Action{}, errors.New("No action found")
+}
+
+// Creating a media stream from media and send it back
+// to the requester
+func CreateMediaStream(url string, c *fiber.Ctx) error {
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", url, nil)
+
+	// add headers to request, except
+	allowed := []string{"User-Agent", "Range", "Accept-Language"}
+	for h, v := range c.GetReqHeaders() {
+		if !slices.Contains(allowed, h) {
+			fmt.Println(h, v[0])
+			continue
+		}
+		req.Header.Add(h, v[0])
+	}
+
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Internal request failed: ", err)
+		return err
+	}
+
+	// Copy headers back to the response
+	disallow := []string{"Server"}
+	for h, v := range resp.Header {
+		if slices.Contains(disallow, h) {
+			continue
+		}
+		c.Set(h, v[0])
+	}
+
+	c.Status(resp.StatusCode)
+	err = c.SendStream(resp.Body, -1)
+	if err != nil {
+		if errors.Is(err, syscall.EPIPE) {
+			return nil
+		}
+
+		return err
+	}
+
+	return nil
 }
