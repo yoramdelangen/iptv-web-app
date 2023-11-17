@@ -40,6 +40,7 @@ func New() *fiber.App {
 	app.All("/:account/player_api.php", XtreamPlayer)
 	app.Get("/:account/xmltv.php", XtreamXML)
 	app.Get("/:account/:type/*/*/:id.mkv", XtreamMedia)
+	app.Get("/:account/*/*/:id", XtreamLive)
 
 	return app
 }

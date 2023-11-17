@@ -87,6 +87,24 @@ func XtreamMedia(c *fiber.Ctx) error {
 	return xtream.CreateMediaStream(url, c)
 }
 
+func XtreamLive(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	fmt.Printf("Request: %+v", c.Request())
+
+	account, err := accounts.Get(c.Params("account"))
+	if err != nil {
+		return err
+	}
+
+	p := []string{account.Url, account.Username, account.Password, id}
+	url := strings.Join(p, "/")
+
+	fmt.Println("url", url)
+
+	return xtream.CreateMediaStream(url, c)
+}
+
 func forwardRequest[T interface{}](account accounts.Account, queries map[string]string) (T, error) {
 	r := xtream.NewRequest()
 	var payload T
