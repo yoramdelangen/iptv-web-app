@@ -1,24 +1,23 @@
 package server
 
 import (
-	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
-	"syscall"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/spf13/viper"
 	"github.com/yoramdelangen/iptv-web-app/internal/accounts"
 	"github.com/yoramdelangen/iptv-web-app/internal/types"
 	"github.com/yoramdelangen/iptv-web-app/internal/xtream"
 )
 
 func XtreamPlayer(c *fiber.Ctx) error {
-	account := c.Params("account")
 	queries := c.Queries()
 	action := queries["action"]
+	account, err := accounts.Get(c.Params("account"))
+	if err != nil {
+		return err
+	}
 
 	if c.Method() == fiber.MethodPost {
 		values, err := url.ParseQuery(string(c.Body()))
@@ -35,15 +34,10 @@ func XtreamPlayer(c *fiber.Ctx) error {
 
 	// in case no action
 	if len(action) == 0 {
-		return root(c)
+		return root(c, account)
 	}
 
-	a, err := xtream.ByAction(action)
-	if err != nil {
-		return err
-	}
-
-	resp, err := forwardRequest(account, queries, a)
+	resp, err := forwardRequest[interface{}](account, queries)
 
 	if err != nil {
 		return err
@@ -55,17 +49,15 @@ func XtreamPlayer(c *fiber.Ctx) error {
 }
 
 func XtreamXML(c *fiber.Ctx) error {
-	account := c.Params("account")
+	account, err := accounts.Get(c.Params("account"))
+	if err != nil {
+		return err
+	}
 
 	r := xtream.NewRequest()
 	payload := types.ResponseDetail{}
 
-	conf := viper.GetStringMap(fmt.Sprintf("accounts.%s", account))
-	if len(conf) == 0 {
-		return errors.New(fmt.Sprintf("Account '%s' not found", account))
-	}
-
-	url := fmt.Sprintf("%s/xmltv.php?username=%s&password=%d", conf["url"], conf["username"], conf["password"])
+	url := fmt.Sprintf("%s/xmltv.php?username=%s&password=%d", account.Url, account.Username, account.Password)
 
 	resp, err := r.Get(url)
 	if err != nil {
@@ -95,24 +87,14 @@ func XtreamMedia(c *fiber.Ctx) error {
 	return xtream.CreateMediaStream(url, c)
 }
 
-func forwardRequest(account string, queries map[string]string, a xtream.Action) (interface{}, error) {
+func forwardRequest[T interface{}](account accounts.Account, queries map[string]string) (T, error) {
 	r := xtream.NewRequest()
-	var payload interface{}
+	var payload T
 
-	conf := viper.GetStringMap(fmt.Sprintf("accounts.%s", account))
-	if len(conf) == 0 {
-		return payload, errors.New(fmt.Sprintf("Account '%s' not found", account))
-	}
+	url := fmt.Sprintf("%s/player_api.php", account.Url)
 
-	url := fmt.Sprintf("%s/player_api.php", conf["url"])
-
-	fmt.Printf("Conig: %+v\n", conf)
-	fmt.Printf("Url: %+v\n", url)
-
-	queries["username"] = fmt.Sprintf("%s", conf["username"])
-	queries["password"] = fmt.Sprintf("%d", conf["password"])
-
-	fmt.Printf("queries before sending: %+v\n", queries)
+	queries["username"] = account.Username
+	queries["password"] = account.Password
 
 	_, err := r.
 		SetQueryParams(queries).
@@ -126,34 +108,49 @@ func forwardRequest(account string, queries map[string]string, a xtream.Action) 
 	return payload, nil
 }
 
+type RootResponse struct {
+	UserInfo   UserInfo   `json:"user_info"`
+	ServerInfo ServerInfo `json:"server_info"`
+}
+
+type UserInfo struct {
+	Username            string   `json:"username"`
+	Password            string   `json:"password"`
+	Message             string   `json:"message"`
+	Auth                int      `json:"auth"`
+	Status              string   `json:"status"`
+	ExpDate             string   `json:"exp_date"`
+	IsTrial             string   `json:"is_trial"`
+	ActiveCons          string   `json:"active_cons"`
+	CreatedAt           string   `json:"created_at"`
+	MaxConnections      string   `json:"max_connections"`
+	AllowedOutputFormat []string `json:"allowed_output_formats"`
+}
+
+type ServerInfo struct {
+	Url            string `json:"url"`
+	Port           string `json:"port"`
+	HttpsPort      string `json:"https_port"`
+	ServerProtocol string `json:"server_protocol"`
+	RtmpPort       string `json:"rtmp_port"`
+	Timezone       string `json:"timezone"`
+	TimezoneNow    int64  `json:"timestamp_now"`
+	TimeNow        string `json:"time_now"`
+}
+
 // being used to check if the credentails match or not....
-func root(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{
-		"user_info": fiber.Map{
-			"username":        "4CNPVVkH7v",
-			"password":        "946265932979",
-			"message":         "Dtv & TeslaVision",
-			"auth":            1,
-			"status":          "Active",
-			"exp_date":        "1702668321",
-			"is_trial":        "0",
-			"active_cons":     "1",
-			"created_at":      "1694802321",
-			"max_connections": "1",
-			"allowed_output_formats": []string{
-				"m3u8",
-				"ts",
-			},
-		},
-		"server_info": fiber.Map{
-			"url":             "a.flixtv.org",
-			"port":            "8080",
-			"https_port":      "8443",
-			"server_protocol": "http",
-			"rtmp_port":       "25462",
-			"timezone":        "Europe/Amsterdam",
-			"timestamp_now":   1700061506,
-			"time_now":        "2023-11-15 16:18:26",
-		},
-	})
+func root(c *fiber.Ctx, account accounts.Account) error {
+	queries := make(map[string]string)
+
+	resp, err := forwardRequest[RootResponse](account, queries)
+
+	if err != nil {
+		return err
+	}
+
+	resp.UserInfo.Username = c.Query("username")
+	resp.UserInfo.Password = c.Query("password")
+	resp.ServerInfo.Url = c.Hostname()
+
+	return c.JSON(resp)
 }

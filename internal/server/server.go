@@ -11,31 +11,6 @@ import (
 	"github.com/yoramdelangen/iptv-web-app/templates"
 )
 
-type UserInfo struct {
-	Username            string
-	Password            string
-	Message             string
-	Auth                int
-	Status              string
-	ExpDate             string `json:"exp_date"`
-	IsTrial             string `json:"is_trial"`
-	ActiveCons          string
-	CreatedAt           string
-	MaxConnections      string
-	AllowedOutputFormat []string
-}
-
-type ServerInfo struct {
-	Url            string
-	Port           string
-	HttpsPort      string
-	ServerProtocol string
-	RtmpPort       string
-	Timezone       string
-	TimezoneNow    int64
-	TimeNow        string
-}
-
 func New() *fiber.App {
 	engine := html.NewFileSystem(http.FS(templates.Files), ".html")
 	engine.Reload(true)
