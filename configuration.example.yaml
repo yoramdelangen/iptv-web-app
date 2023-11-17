@@ -1,0 +1,7 @@
+accounts:
+  {id}:
+    name: "account name"
+    username: "{username}"
+    password: "{password}"
+    url: http://google.com
+
